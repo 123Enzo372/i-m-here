@@ -1,8 +1,64 @@
+require('dotenv').config();
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const keytar = require('keytar');
 const fetch = require('node-fetch');
 const https = require('https');
+const nodemailer = require('nodemailer');
+
+// Configuration du transporteur SMTP pour l'envoi d'emails
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT, 10) || 587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+// Envoi de l'email d'inactivité
+async function sendInactivityEmail(userEmail) {
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_USER,
+      to: userEmail,
+      subject: process.env.INACTIVITY_EMAIL_SUBJECT || 'Absence détectée',
+      text: process.env.INACTIVITY_EMAIL_MESSAGE || 'Bonjour, vous ne vous êtes pas connecté depuis plusieurs jours.',
+    });
+    console.log(`Mail d'inactivité envoyé avec succès à ${userEmail}`);
+  } catch (error) {
+    console.error(`Erreur lors de l'envoi du mail d'inactivité :`, error);
+  }
+}
+
+// Vérification de l'inactivité globale
+async function checkInactivity() {
+  const inactivityDays = parseInt(process.env.INACTIVITY_DAYS, 10) || 7;
+  const thresholdDate = new Date(Date.now() - inactivityDays * 24 * 60 * 60 * 1000);
+
+  try {
+    // Requête vers ton serveur backend pour récupérer et traiter les utilisateurs inactifs
+    const resp = await customFetch(`${SERVER_ORIGIN}/api/check-inactivity`, {
+      method: 'POST',
+      body: JSON.stringify({ thresholdDate, inactivityDays }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (resp.ok) {
+      const { inactiveUsers } = await resp.json();
+      if (Array.isArray(inactiveUsers)) {
+        for (const user of inactiveUsers) {
+          if (user.email) {
+            await sendInactivityEmail(user.email);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Erreur lors de la vérification de l\'inactivité :', err);
+  }
+}
 
 // Ignorer les erreurs SSL pour node-fetch (certificat auto-signé en local)
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
@@ -31,6 +87,11 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+
+  // Lance la vérification de l'inactivité au démarrage puis toutes les 24h
+  checkInactivity();
+  setInterval(checkInactivity, 24 * 60 * 60 * 1000);
+
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -104,7 +165,7 @@ ipcMain.handle('verify2fa', async (event, { tempToken, code }) => {
 ipcMain.handle('getAccessToken', async () => {
   try {
     const refreshToken = await keytar.getPassword(SERVICE_NAME, REFRESH_TOKEN_KEY);
-    if (!refreshToken) return { error: null }; // Renvoie null au lieu d'une erreur si pas encore connecté
+    if (!refreshToken) return { error: null };
     const resp = await customFetch(`${SERVER_ORIGIN}/api/refresh`, {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
