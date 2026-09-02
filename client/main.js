@@ -2,10 +2,18 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const keytar = require('keytar');
 const fetch = require('node-fetch');
+const https = require('https');
+
+// Ignorer les erreurs SSL pour node-fetch (certificat auto-signé en local)
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+const customFetch = (url, options = {}) => fetch(url, { ...options, agent: httpsAgent });
+
+// Ignorer les erreurs SSL pour Chromium/Electron
+app.commandLine.appendSwitch('ignore-certificate-errors');
 
 const SERVICE_NAME = 'presence-app';
 const REFRESH_TOKEN_KEY = 'refreshToken';
-const SERVER_ORIGIN = 'https://localhost:8443'; // adapt if using reverse proxy
+const SERVER_ORIGIN = 'https://localhost:8443';
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -27,6 +35,7 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
@@ -35,7 +44,7 @@ app.on('window-all-closed', function () {
 
 ipcMain.handle('register', async (event, { username, password }) => {
   try {
-    const resp = await fetch(`${SERVER_ORIGIN}/api/register`, {
+    const resp = await customFetch(`${SERVER_ORIGIN}/api/register`, {
       method: 'POST',
       body: JSON.stringify({ username, password }),
       headers: { 'Content-Type': 'application/json' }
@@ -51,7 +60,7 @@ ipcMain.handle('register', async (event, { username, password }) => {
 
 ipcMain.handle('login', async (event, { username, password }) => {
   try {
-    const resp = await fetch(`${SERVER_ORIGIN}/api/login`, {
+    const resp = await customFetch(`${SERVER_ORIGIN}/api/login`, {
       method: 'POST',
       body: JSON.stringify({ username, password, deviceInfo: `${process.platform} desktop` }),
       headers: { 'Content-Type': 'application/json' }
@@ -60,7 +69,6 @@ ipcMain.handle('login', async (event, { username, password }) => {
     if (!resp.ok) return { error: data.error || 'login_failed' };
 
     if (data.twofa) {
-      // 2FA required: return tempToken for verification
       return { twofa: true, tempToken: data.tempToken, method: data.method };
     }
 
@@ -76,7 +84,7 @@ ipcMain.handle('login', async (event, { username, password }) => {
 
 ipcMain.handle('verify2fa', async (event, { tempToken, code }) => {
   try {
-    const resp = await fetch(`${SERVER_ORIGIN}/api/2fa/verify`, {
+    const resp = await customFetch(`${SERVER_ORIGIN}/api/2fa/verify`, {
       method: 'POST',
       body: JSON.stringify({ tempToken, code, deviceInfo: `${process.platform} desktop` }),
       headers: { 'Content-Type': 'application/json' }
@@ -96,8 +104,8 @@ ipcMain.handle('verify2fa', async (event, { tempToken, code }) => {
 ipcMain.handle('getAccessToken', async () => {
   try {
     const refreshToken = await keytar.getPassword(SERVICE_NAME, REFRESH_TOKEN_KEY);
-    if (!refreshToken) return { error: 'no_refresh' };
-    const resp = await fetch(`${SERVER_ORIGIN}/api/refresh`, {
+    if (!refreshToken) return { error: null }; // Renvoie null au lieu d'une erreur si pas encore connecté
+    const resp = await customFetch(`${SERVER_ORIGIN}/api/refresh`, {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
       headers: { 'Content-Type': 'application/json' }
@@ -113,7 +121,7 @@ ipcMain.handle('getAccessToken', async () => {
 
 ipcMain.handle('confirmPresence', async (event, { accessToken }) => {
   try {
-    const resp = await fetch(`${SERVER_ORIGIN}/api/presence`, {
+    const resp = await customFetch(`${SERVER_ORIGIN}/api/presence`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -139,14 +147,11 @@ ipcMain.handle('logout', async () => {
   }
 });
 
-// 2FA setup: request otpauth_url from server
 ipcMain.handle('start2faSetup', async () => {
   try {
-    // require authentication: for simplicity we use stored refresh token to get access token,
-    // then call the protected endpoint. In a robust client you'd keep accessToken in memory.
     const refreshToken = await keytar.getPassword(SERVICE_NAME, REFRESH_TOKEN_KEY);
     if (!refreshToken) return { error: 'not_authenticated' };
-    const r = await fetch(`${SERVER_ORIGIN}/api/refresh`, {
+    const r = await customFetch(`${SERVER_ORIGIN}/api/refresh`, {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
       headers: { 'Content-Type': 'application/json' }
@@ -155,7 +160,7 @@ ipcMain.handle('start2faSetup', async () => {
     if (!r.ok) return { error: tokenData.error || 'refresh_failed' };
     const accessToken = tokenData.accessToken;
 
-    const resp = await fetch(`${SERVER_ORIGIN}/api/2fa/setup`, {
+    const resp = await customFetch(`${SERVER_ORIGIN}/api/2fa/setup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` }
     });
@@ -172,7 +177,7 @@ ipcMain.handle('enable2fa', async (event, { base32Secret, code, method }) => {
   try {
     const refreshToken = await keytar.getPassword(SERVICE_NAME, REFRESH_TOKEN_KEY);
     if (!refreshToken) return { error: 'not_authenticated' };
-    const r = await fetch(`${SERVER_ORIGIN}/api/refresh`, {
+    const r = await customFetch(`${SERVER_ORIGIN}/api/refresh`, {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
       headers: { 'Content-Type': 'application/json' }
@@ -181,7 +186,7 @@ ipcMain.handle('enable2fa', async (event, { base32Secret, code, method }) => {
     if (!r.ok) return { error: tokenData.error || 'refresh_failed' };
     const accessToken = tokenData.accessToken;
 
-    const resp = await fetch(`${SERVER_ORIGIN}/api/2fa/enable`, {
+    const resp = await customFetch(`${SERVER_ORIGIN}/api/2fa/enable`, {
       method: 'POST',
       body: JSON.stringify({ base32Secret, code, method }),
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` }

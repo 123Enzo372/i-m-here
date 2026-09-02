@@ -14,19 +14,27 @@
       "**/*"
     ],
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "category": "Utility"
     },
     "win": {
-      "target": ["nsis"]
+      "target": [
+        "nsis"
+      ]
     }
   },
   "dependencies": {
-    "electron": "^26.0.0",
-    "keytar": "^8.1.0",
+    "electron": "^44.1.1",
+    "keytar": "^7.9.0",
     "node-fetch": "^2.6.7"
   },
   "devDependencies": {
-    "electron-builder": "^24.6.0"
+    "electron-builder": "^26.15.3"
+  },
+  "allowScripts": {
+    "keytar@7.9.0": true,
+    "electron-winstaller@5.4.0": true
   }
 }
