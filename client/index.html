@@ -10,13 +10,13 @@
       .wrapper { width:420px; }
       .topbar { display:flex; justify-content:flex-start; margin-bottom:8px; }
       .card { background: var(--card); padding:24px; border-radius:12px; width:100%; box-shadow: 0 6px 20px rgba(16,24,40,0.08); position:relative; }
-      h1,h2 { margin:0 0 16px 0; color:#0f172a; }
+      h1,h2,h3 { margin:0 0 16px 0; color:#0f172a; }
       input, textarea { width:100%; padding:10px 12px; margin-bottom:12px; border-radius:8px; border:1px solid #e6e9ef; box-sizing:border-box; }
       textarea { min-height:72px; resize:vertical; font-family:monospace; font-size:12px; }
       button { background:var(--accent); color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
       button.secondary { background:transparent; color:var(--accent); border:1px solid #e6e9ef; }
       .muted { color:var(--muted); font-size:13px; }
-      .row { display:flex; gap:8px; }
+      .row { display:flex; gap:8px; flex-wrap:wrap; }
       .qr { text-align:center; margin:12px 0; }
       .qr img { display:block; margin:0 auto; width:200px; height:200px; object-fit:contain; background:#fff; border-radius:8px; }
       .small { font-size:13px; color:var(--muted); }
@@ -60,6 +60,29 @@
           <p id="reg_msg" class="small"></p>
         </section>
 
+        <!-- SCREEN: Link Email (Nouveau : Affiché juste après la création du compte) -->
+        <section id="screen-email" class="screen">
+          <h2>Lier mon adresse email</h2>
+          <p class="small">Renseignez votre e-mail pour recevoir vos notifications de présence.</p>
+          <input id="email_input" type="email" placeholder="exemple@domaine.com" />
+          <div class="row">
+            <button id="btnSaveEmail">Enregistrer l'email</button>
+            <button class="secondary" id="btnSkipEmail">Passer</button>
+          </div>
+          <p id="email_msg" class="small"></p>
+        </section>
+
+        <!-- SCREEN: Link Discord Webhook -->
+        <section id="screen-webhook" class="screen">
+          <h2>Configurer Discord</h2>
+          <p class="small">Ajoutez le webhook Discord qui recevra les rappels d'inactivité. Un message de test sera envoyé. Cette étape est obligatoire.</p>
+          <input id="webhook_input" placeholder="https://discord.com/api/webhooks/..." />
+          <div class="row">
+            <button id="btnSaveWebhook">Enregistrer le webhook</button>
+          </div>
+          <p id="webhook_msg" class="small"></p>
+        </section>
+
         <!-- SCREEN: Login -->
         <section id="screen-login" class="screen">
           <h2>Connexion</h2>
@@ -75,7 +98,7 @@
         <!-- SCREEN: 2FA Verify -->
         <section id="screen-2fa" class="screen">
           <h2>Vérification 2FA</h2>
-          <p id="twofa_instr" class="small">Saisissez le code reçu (application TOTP ou Discord).</p>
+          <p id="twofa_instr" class="small">Saisissez le code de votre application d'authentification.</p>
           <input id="twofa_code" placeholder="Code 2FA (6 chiffres)" />
           <div class="row">
             <button id="btnVerify2FA">Vérifier</button>
@@ -84,11 +107,12 @@
           <p id="twofa_msg" class="small"></p>
         </section>
 
-        <!-- SCREEN: Main (after login) -->
+        <!-- SCREEN: Main (after login/email setup) -->
         <section id="screen-main" class="screen">
           <h2 id="welcome">Bienvenue</h2>
           <div class="row" style="margin-top:12px;">
             <button id="btnConfirm">Confirmer présence</button>
+            <button class="secondary" id="btnEditWebhook">Webhook Discord</button>
             <button class="secondary" id="btnLogout">Se déconnecter</button>
           </div>
           <p id="status" class="small"></p>
@@ -100,7 +124,6 @@
           <div id="setup-actions">
             <div class="row">
               <button id="btnSetupTOTP">Activer 2FA (TOTP)</button>
-              <button id="btnSetupDiscord">Activer 2FA (Code sur Discord)</button>
             </div>
           </div>
         </section>

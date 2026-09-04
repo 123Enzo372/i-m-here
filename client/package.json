@@ -13,6 +13,19 @@
     "files": [
       "**/*"
     ],
+    "extraResources": [
+      {
+        "from": "../server",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!.env",
+          "!presence.db",
+          "!*.sqlite",
+          "!*.sqlite3"
+        ]
+      }
+    ],
     "linux": {
       "target": [
         "AppImage"

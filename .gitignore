@@ -21,6 +21,9 @@ server/certs/
 *.sqlite
 *.sqlite3
 
+# Supabase CLI local state
+supabase/.temp/
+
 # Compilations Electron & Builds
 dist/
 build/
