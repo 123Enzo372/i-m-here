@@ -9,6 +9,7 @@ const SERVER_ENV_PATH = process.env.PRESENCE_SERVER_ENV ||
     ? path.join(path.dirname(process.execPath), 'server.env')
     : path.join(__dirname, '..', 'server', '.env'));
 process.env.PRESENCE_SERVER_ENV = SERVER_ENV_PATH;
+let backendStartupError = null;
 
 function loadServerEnv(envPath) {
   if (!fs.existsSync(envPath)) return;
@@ -43,7 +44,19 @@ const REFRESH_TOKEN_KEY = 'refreshToken';
 const SERVER_PORT = process.env.PORT || 3000;
 const SERVER_ORIGIN = `http://localhost:${SERVER_PORT}`;
 
-const customFetch = (url, options = {}) => fetch(url, options);
+function formatNetworkError(err) {
+  if (backendStartupError) return backendStartupError;
+  if (err && err.message) return `Serveur interne inaccessible: ${err.message}`;
+  return 'Serveur interne inaccessible';
+}
+
+const customFetch = (url, options = {}) => {
+  if (backendStartupError) {
+    throw new Error(backendStartupError);
+  }
+
+  return fetch(url, options);
+};
 
 app.commandLine.appendSwitch('ignore-certificate-errors');
 
@@ -57,6 +70,10 @@ function getServerEntryPath() {
 
 function startInternalServer() {
   try {
+    if (!fs.existsSync(SERVER_ENV_PATH)) {
+      throw new Error(`Configuration serveur introuvable. Créez un fichier server.env à côté de PresenceApp.exe (${SERVER_ENV_PATH}).`);
+    }
+
     const serverEntry = getServerEntryPath();
     const serverModule = require(serverEntry);
 
@@ -67,6 +84,7 @@ function startInternalServer() {
     serverModule.startServer(SERVER_PORT);
     console.log('Serveur backend démarré en arrière-plan.');
   } catch (err) {
+    backendStartupError = err && err.message ? err.message : 'Erreur inconnue au démarrage du serveur interne.';
     console.error('Erreur lors du démarrage du serveur interne:', err);
   }
 }
@@ -118,7 +136,7 @@ ipcMain.handle('register', async (event, { username, password }) => {
     return { ok: true, accessToken: data.accessToken, user: data.user };
   } catch (err) {
     console.error(err);
-    return { error: 'network_error' };
+    return { error: formatNetworkError(err) };
   }
 });
 
@@ -137,7 +155,7 @@ ipcMain.handle('saveEmail', async (event, { email, accessToken }) => {
     return { ok: true, user: data.user };
   } catch (err) {
     console.error(err);
-    return { error: 'network_error' };
+    return { error: formatNetworkError(err) };
   }
 });
 
@@ -156,7 +174,7 @@ ipcMain.handle('saveDiscordWebhook', async (event, { webhookUrl, accessToken }) 
     return { ok: true, user: data.user };
   } catch (err) {
     console.error(err);
-    return { error: 'network_error' };
+    return { error: formatNetworkError(err) };
   }
 });
 
@@ -180,7 +198,7 @@ ipcMain.handle('login', async (event, { username, password }) => {
     return { accessToken: data.accessToken, user: data.user };
   } catch (err) {
     console.error(err);
-    return { error: 'network_error' };
+    return { error: formatNetworkError(err) };
   }
 });
 
@@ -199,7 +217,7 @@ ipcMain.handle('verify2fa', async (event, { tempToken, code }) => {
     return { accessToken: data.accessToken, user: data.user, refreshToken: data.refreshToken };
   } catch (err) {
     console.error(err);
-    return { error: 'network_error' };
+    return { error: formatNetworkError(err) };
   }
 });
 
@@ -217,7 +235,7 @@ ipcMain.handle('getAccessToken', async () => {
     return { accessToken: data.accessToken };
   } catch (err) {
     console.error(err);
-    return { error: 'network_error' };
+    return { error: formatNetworkError(err) };
   }
 });
 
@@ -235,7 +253,7 @@ ipcMain.handle('confirmPresence', async (event, { accessToken }) => {
     return { ok: true, last_seen: data.last_seen };
   } catch (err) {
     console.error(err);
-    return { error: 'network_error' };
+    return { error: formatNetworkError(err) };
   }
 });
 
@@ -281,7 +299,7 @@ ipcMain.handle('start2faSetup', async (event, { accessToken } = {}) => {
     return { otpauth_url: data.otpauth_url, base32: data.base32 };
   } catch (err) {
     console.error('Erreur start2faSetup IPC:', err);
-    return { error: 'network_error' };
+    return { error: formatNetworkError(err) };
   }
 });
 
@@ -317,6 +335,6 @@ ipcMain.handle('enable2fa', async (event, { base32Secret, code, method, accessTo
     return { ok: true, user: data.user };
   } catch (err) {
     console.error('Erreur enable2fa IPC:', err);
-    return { error: 'network_error' };
+    return { error: formatNetworkError(err) };
   }
 });
