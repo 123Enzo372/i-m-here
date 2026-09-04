@@ -15,15 +15,17 @@
     ],
     "extraResources": [
       {
-        "from": "../server",
-        "to": "server",
-        "filter": [
-          "**/*",
-          "!.env",
-          "!presence.db",
-          "!*.sqlite",
-          "!*.sqlite3"
-        ]
+        "from": "../server/server.js",
+        "to": "server/server.js"
+      },
+      {
+        "from": "../server/package.json",
+        "to": "server/package.json"
+      },
+      {
+        "from": "../server/node_modules",
+        "to": "server/node_modules",
+        "filter": ["**/*"]
       }
     ],
     "linux": {

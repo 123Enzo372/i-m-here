@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const keytar = require('keytar');
 const fetch = require('node-fetch');
 
@@ -7,8 +8,35 @@ const SERVER_ENV_PATH = process.env.PRESENCE_SERVER_ENV ||
   (app.isPackaged
     ? path.join(path.dirname(process.execPath), 'server.env')
     : path.join(__dirname, '..', 'server', '.env'));
-require('dotenv').config({ path: SERVER_ENV_PATH });
 process.env.PRESENCE_SERVER_ENV = SERVER_ENV_PATH;
+
+function loadServerEnv(envPath) {
+  if (!fs.existsSync(envPath)) return;
+
+  const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const separatorIndex = trimmed.indexOf('=');
+    if (separatorIndex === -1) continue;
+
+    const key = trimmed.slice(0, separatorIndex).trim();
+    let value = trimmed.slice(separatorIndex + 1).trim();
+    if (!key || process.env[key] !== undefined) continue;
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    process.env[key] = value;
+  }
+}
+
+loadServerEnv(SERVER_ENV_PATH);
 
 const SERVICE_NAME = 'presence-app';
 const REFRESH_TOKEN_KEY = 'refreshToken';
