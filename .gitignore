@@ -9,6 +9,7 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
+server.env
 
 # Certificats SSL locaux
 *.pem

@@ -39,11 +39,11 @@
     }
   },
   "dependencies": {
-    "electron": "^44.1.1",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7"
   },
   "devDependencies": {
+    "electron": "^44.1.1",
     "electron-builder": "^26.15.3"
   },
   "allowScripts": {
